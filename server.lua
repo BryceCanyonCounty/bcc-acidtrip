@@ -23,5 +23,5 @@ end)
 
 --This handles the version check
 local versioner = exports['bcc-versioner'].initiate()
-local repo = 'https://github.com/jakeyboi1/bcc-farming'
+local repo = 'https://github.com/BryceCanyonCounty/bcc-acidtrip'
 versioner.checkRelease(GetCurrentResourceName(), repo)
