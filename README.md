@@ -7,6 +7,7 @@
 - Easy to configure in config.lua!
 - 1 in 4 chance of a bad trip happening, and causing wacky halucination filled events!
 - 3 in 4 chance of having a good trip, giving you a nice high (screen effect for a set amount of time)
+- Versioner to keep upto date on updates
 
 ## How it works
 - Simple just use(double click) in your inventory one of the drug items you set up!
