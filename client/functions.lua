@@ -1,7 +1,12 @@
+---------- Pulling Essesntials --------------
+VORPcore = {}
+TriggerEvent("getCore", function(core)
+    VORPcore = core
+end)
+
 ------Functions----
-local deadcheck = false --var used to see if player is dead
---This creates a function that when called will make smoke appear on a ped(you pass the ped too it)
-function SmokeCloudOnPed(ped)
+local deadCheck = false
+function SmokeCloudOnPed(ped) --This creates a function that when called will make smoke appear on a ped(you pass the ped too it)
     local new_ptfx_dictionary = "scr_odd_fellows"
     local new_ptfx_name = "scr_river5_magician_smoke"
     local is_particle_effect_active = false
@@ -25,7 +30,7 @@ function SmokeCloudOnPed(ped)
             Citizen.InvokeNative(0xF2B2353BBC0D4E8F, GetHashKey(current_ptfx_dictionary))   --RequestNamedPtfxAsset
             local counter = 0
             while not Citizen.InvokeNative(0x65BB72F29138F5D6, GetHashKey(current_ptfx_dictionary)) and counter <= 300 do   --while not HasNamedPtfxAssetLoaded
-                Citizen.Wait(0)
+                Wait(0)
             end
         end
         if Citizen.InvokeNative(0x65BB72F29138F5D6, GetHashKey(current_ptfx_dictionary)) then  -- HasNamedPtfxAssetLoaded
@@ -47,56 +52,46 @@ function SmokeCloudOnPed(ped)
 end
 
 --This function will spawn as many peds as set in a table, and detect when they are dead, when they all die it will trigger an event
-function PedTableAllDead(pedcoordtable, model, event) --pedcoordtable = Table of ped coords to spawn. model = model hash of peds to spawn. Event = Client event to trigger when all peds are dead
-    TriggerEvent('bcc-acidtrip:DeadCheck') --triggers the event for deadchecking
-    local createdped = {} --creates a table for the peds spawned info to be stored in
-    local count = {} --creates a table used to track the amount of peds left
-    local runoncething = 0
-    RequestModel(model)              --dont know but is needed
-    if not HasModelLoaded(model) then
-        RequestModel(model)
-    end
-    while not HasModelLoaded(model) or HasModelLoaded(model) == 0 or model == 1 do
-        Citizen.Wait(1)
-    end
-    for k, v in pairs(pedcoordtable) do --for loop in the table runs once per table
-        Wait(1000) --waits 1 second
-        createdped[k] = CreatePed(model, v.x, v.y, v.z, false, true) --spawns the ped and stores them in the k key
-        Citizen.InvokeNative(0x283978A15512B2FE, createdped[k], true) --This sets the ped into a random outift(fixes an invisiblity bug)
-        Citizen.InvokeNative(0x23f74c2fda6e7c61, 953018525, createdped[k]) --sets blips to track the peds
-        TaskCombatPed(createdped[k], PlayerPedId()) --makes the ped attack the player
+function PedTableAllDead(pedCoordTable, model, event)
+    TriggerEvent('bcc-acidtrip:DeadCheck')
+    local createdPed, count, runOnceThing = {}, {}, false
+    modelLoad(model)
+    for k, v in pairs(pedCoordTable) do
+        Wait(1000)
+        createdPed[k] = CreatePed(model, v.x, v.y, v.z, false, true)
+        Citizen.InvokeNative(0x283978A15512B2FE, createdPed[k], true)
+        Citizen.InvokeNative(0x23f74c2fda6e7c61, 953018525, createdPed[k])
+        TaskCombatPed(createdPed[k], PlayerPedId())
         if Config.SmokeOnNpcSpawn then
-            SmokeCloudOnPed(createdped[k]) --triggers the smoke cloud function and passes the ped too it
+            SmokeCloudOnPed(createdPed[k])
         end
-        count[k] = createdped[k] --sets count to equal createdped amount
-        if runoncething == 0 then
-            runoncething = runoncething + 1
-            Citizen.CreateThread(function() --creates a thread
-                local x = #pedcoordtable --sets x to the number of tables
-                while true do --loop that runs until broken
-                    Citizen.Wait(150) --waits 150ms prevents crashing
-                    if deadcheck then break end --if player dead then break loop
-                    for k, v in pairs(createdped) do
-                        if IsEntityDead(v) then                                 --checks if the entities are dead
-                            if IsEntityDead(v) then --if peds are dead then
-                                if count[k] ~= nil then --if variable not nil then
-                                    x = x - 1 --x = x - 1
-                                    count[k] = nil --sets count too nil
-                                    if x == 0 then --if x = 0 then(all peds are dead)
-                                        TriggerEvent(event) --triggers the client event that is passed to this function
-                                        runoncething = 0 break --changes the var back and breaks the loop
-                                    end
+        count[k] = createdPed[k]
+        if not runOnceThing then
+            runOnceThing = true
+            CreateThread(function() --thread required to run this code asyn and allow for loop to continue
+                local x = #pedCoordTable
+                while true do
+                    Wait(150)
+                    if deadCheck then break end
+                    for k, v in pairs(createdPed) do
+                        if IsEntityDead(v) then
+                            if count[k] ~= nil then
+                                x = x - 1
+                                count[k] = nil
+                                if x == 0 then
+                                    TriggerEvent(event, model)
+                                    runOnceThing = false break
                                 end
                             end
                         end
                     end
                 end
-                if deadcheck then --if var true then
-                    for key, value in pairs(createdped) do --for loop
-                        DeletePed(value) --deletes ped (this deletes all peds created)
+                if deadCheck then
+                    for key, value in pairs(createdPed) do
+                        DeletePed(value)
                     end
-                    deadcheck = false --resets the variable so this code can be ran again
-                    TriggerEvent('bcc-acidtrip:WakeUp/End') --triggers the end event
+                    deadCheck = false
+                    TriggerEvent('bcc-acidtrip:WakeUp/End')
                 end
             end)
         end
@@ -105,65 +100,52 @@ end
 
 RegisterNetEvent('bcc-acidtrip:DeadCheck')
 AddEventHandler('bcc-acidtrip:DeadCheck', function()
-    while true do --loops runs until broken
-        Citizen.Wait(100) --waits 100ms
-        if IsEntityDead(PlayerPedId()) == 1 then --if u die then
-            deadcheck = true break --set var true break loop
+    while true do
+        Wait(100)
+        if IsEntityDead(PlayerPedId()) then
+            deadCheck = true break
         end
     end
 end)
 
---Function to handle changing the players ped for a set time, and triggers an event once ped reset
-function PlayerPedchange(multichange, model, time, event, smokeexplosion) --ped is the ped to change, model is the model to set it too, time is the time stayed as the, event is the event it will trigger after changing your ped back to normal, smoke explosion boolean
-    --Multi Change Setup
-    if multichange then --if var true then
-        for k, v in pairs(AnimalHashes) do --for loop in the animal hashes table
-            local model2 = GetHashKey(v.model)--var used to store the model for single ped change
-            if smokeexplosion then --if var true then
-                SmokeCloudOnPed(PlayerPedId()) --triggers the smoke cloud function on the player
-            end
-            if not IsModelValid(model2) then return end --if model is not valid then return ending function
-            RequestModel(model2, 0) --requests/loads the model
-            while not Citizen.InvokeNative(0x1283B8B89DD5D1B6, model2) do --while model hasnt loaded do
-                Citizen.InvokeNative(0xFA28FE3A6246FC30, model2, 0) --request model
-                Citizen.Wait(0) --wait 0ms prevents crashing
-            end
-            if HasModelLoaded(model2) then --once model loaded then
-                Citizen.InvokeNative(0xED40380076A31506, PlayerId(), model2, false) --changes players model
-	            Citizen.InvokeNative(0x283978A15512B2FE, PlayerPedId(), true) --sets ped into random outfit preventing invisiblity bug
-	            SetModelAsNoLongerNeeded(model2) --sets model as no longer needed
-                Citizen.Wait(time) --waits the set time
-            end
+function PlayerPedchange(multichange, model, time, event, smokeexplosion) --Function to handle changing the players ped for a set time, and triggers an event once ped reset
+    local changingModel = function(model3)
+        if smokeexplosion then
+            SmokeCloudOnPed(PlayerPedId())
+        end
+        if not IsModelValid(model3) then return end
+        modelLoad(model3)
+        Citizen.InvokeNative(0xED40380076A31506, PlayerId(), model3, false)
+        Citizen.InvokeNative(0x283978A15512B2FE, PlayerPedId(), true)
+	    SetModelAsNoLongerNeeded(model3)
+        Wait(time)
+    end
+
+    if multichange then
+        for k, v in pairs(AnimalHashes) do
+            local model2 = joaat(v.model)
+            changingModel(model2)
         end
         ExecuteCommand('rc') --uses the /rc command reseting the players ped
-        Wait(200) --waits 200 ms
-        TriggerEvent(event) --triggers the next event after the repeat has finished
-    else --else if the var is not true
-        --Single Change Setup
-        local model2 = GetHashKey(model)--var used to store the model for single ped change
-        if smokeexplosion then --if var true then
-            SmokeCloudOnPed(PlayerPedId()) --triggers the smoke cloud function on the player
-        end
-        if not IsModelValid(model2) then return end --if model is not valid then return ending function
-        RequestModel(model2, 0) --requests/loads the model
-        while not Citizen.InvokeNative(0x1283B8B89DD5D1B6, model2) do --while model hasnt loaded do
-            Citizen.InvokeNative(0xFA28FE3A6246FC30, model2, 0) --request model
-            Citizen.Wait(0) --wait 0ms prevents crashing
-        end
-        if HasModelLoaded(model2) then --once model loaded then
-            Citizen.InvokeNative(0xED40380076A31506, PlayerId(), model2, false) --changes players model
-	        Citizen.InvokeNative(0x283978A15512B2FE, PlayerPedId(), true) --sets ped into random outfit preventing invisiblity bug
-	        SetModelAsNoLongerNeeded(model2) --sets model as no longer needed
-            Citizen.Wait(time) --waits the set time
-            ExecuteCommand('rc') --uses the /rc command reseting the players ped
-            Wait(200) --waits 200 ms
-            TriggerEvent(event) --triggers the next event after the repeat has finished
-        end
+        Wait(200)
+        TriggerEvent(event)
+    else
+        local model2 = joaat(model)
+        changingModel(model2)
+        ExecuteCommand('rc')
+        Wait(200)
+        TriggerEvent(event)
+    end
+end
+
+function modelLoad(model) --loads model
+    RequestModel(model)
+    while not HasModelLoaded(model) do
+        Wait(100)
     end
 end
 
 -------------Tables-----------------------------
---Table is used to store animal hashes for random ped changing
 AnimalHashes = {
     {model = 'A_C_Bear_01'},
     {model = 'mp_a_c_deer_01'},
