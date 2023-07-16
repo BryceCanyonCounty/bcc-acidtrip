@@ -7,23 +7,23 @@ author 'Jake2k4'
 
 
 server_scripts {
-    'server.lua',
+    'server.lua'
 }
 
 shared_scripts {
-    'config.lua',
+    'config.lua'
 }
 
 
 client_scripts {
-    '/client/client.lua',
     '/client/functions.lua',
+    '/client/client.lua'
 }
 
 dependencies {
     'vorp_core',
     'vorp_inventory',
-    'bcc-versioner',
+    'bcc-utils',
     'weathersync'
 }
 
